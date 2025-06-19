@@ -18,7 +18,7 @@ target/
 .classpath
 .factorypath
 .project
-.settings
+.settingsg
 .springBeans
 .sts4-cache
 

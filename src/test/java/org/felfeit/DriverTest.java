@@ -1,6 +1,5 @@
 package org.felfeit;
 
-import org.felfeit.util.ConnectionUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

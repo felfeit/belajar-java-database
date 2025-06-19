@@ -30,6 +30,24 @@ public class ConnectionTest {
         try {
             Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
             System.out.println("Sukses Terkoneksi ke Database");
+            Assertions.assertNotNull(connection);
+        } catch (SQLException exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    void testCloseConnection() {
+        String jdbcUrl = "jdbc:mysql://localhost:3306/belajar_java_database";
+        String username = "root";
+        String password = "";
+
+        try {
+            Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
+            System.out.println("Sukses Terkoneksi ke Database");
+            connection.close();
+            System.out.println("Sukses menutup koneksi");
+            Assertions.assertTrue(connection.isClosed());
         } catch (SQLException exception) {
             Assertions.fail(exception);
         }
