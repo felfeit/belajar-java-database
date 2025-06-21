@@ -31,7 +31,8 @@ Untuk dokumentasi lengkap dari API JDBC, kamu bisa merujuk ke dokumentasi resmi 
 ## Cara kerja JDBC
 
 Cara kerja JDBC bisa dijelaskan seperti ini:
-![Cara Kerja JDBC](https://github.com/user-attachments/assets/4dd0e348-fff6-4295-8996-a4b775abf9d1)
+
+![How_JDBC_Works](https://github.com/user-attachments/assets/f1d7c70b-c672-4caa-a2ae-97276508589e)
 
 Aplikasi yang kita buat—baik itu aplikasi desktop, web, atau jenis lainnya yang dibangun dengan Java—tidak langsung terhubung ke database. Sebagai gantinya, aplikasi akan terhubung dulu ke **JDBC** (Java Database Connectivity).
 
@@ -213,7 +214,8 @@ Manfaat:
 
 
 ### Konsep Connection Pool
-![Connection_Pool](https://github.com/user-attachments/assets/318a97fc-cee3-4275-98f1-bf1d285cf30c)
+
+![Connection_Pool](https://github.com/user-attachments/assets/44259ce9-df52-42cc-872d-8d4d331dee26)
 
 ### HikariCP - Connection Pool Cepat & Ringan
 Bikin connection pool sendiri itu ribet dan rawan bug.
