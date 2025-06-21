@@ -947,7 +947,7 @@ void testDatabaseMetaData() throws SQLException {
 Untuk mengaksesnya, gunakan method `getParameterMetaData()` dari object `PreparedStatement`.
 
 > ![NOTE]
-> **Tidak semua JDBC driver mendukung tipe data parameter secara detail.** 
+> Tidak semua JDBC driver mendukung tipe data parameter secara detail.
 
 **Kode: ParameterMetaData**
 
