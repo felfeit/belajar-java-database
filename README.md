@@ -132,7 +132,11 @@ Semua proses ini bisa melempar **SQLException**, jadi sebaiknya ditangani dengan
 
 #### Unit Test: Membuat Koneksi
 Contoh unit test untuk memastikan koneksi ke database berhasil dibuat:
+
 ```java
+import java.sql.Connection;
+import java.sql.SQLException;
+
 @Test
 void testConnection() {
     String jdbcUrl = "jdbc:mysql://localhost:3306/belajar_java_database";
@@ -157,7 +161,11 @@ Contoh masalah:
 - MySQL secara default hanya mengizinkan 151 koneksi aktif. Baca referensi berikut: [MySQL Default Max Connections](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_max_connections)
 
 #### Unit Test: Menutup Koneksi
+
 ```java
+import java.sql.Connection;
+import java.sql.SQLException;
+
 @Test
 void testCloseConnection() {
     String jdbcUrl = "jdbc:mysql://localhost:3306/belajar_java_database";
@@ -232,7 +240,7 @@ Nah, di antara banyak library, [HikariCP](https://github.com/brettwooldridge/Hik
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
-public class HikariCPDataSource {
+public class ConnectionUtil {
 
   private static HikariDataSource dataSource;
 
@@ -257,15 +265,28 @@ public class HikariCPDataSource {
 }
 ```
 
-3. Membuat dan Menggunakan Connection Pool
+3. Menggunakan Connection Pool
+Unit Test: Menggunakan Connection Pool
+
 ```java
+import com.zaxxer.hikari.HikariDataSource;
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+
 @Test
 void testConnectionPool() {
     try {
-        HikariDataSource dataSource = HikariCPDataSource.getDataSource();
+        HikariDataSource dataSource = ConnectionUtil.getDataSource();
         Connection connection = dataSource.getConnection();
-        System.out.println("Connection success");
-        Assertions.assertNotNull(connection);
+        System.out.println("Sukses mengambil koneksi");
+
+        connection.close();
+        System.out.println("Sukses mengembalikan koneksi");
+
+        dataSource.close();
+        System.out.println("Sukses menutup pool");
     } catch (SQLException e) {
         Assertions.fail(e);
     }
@@ -291,14 +312,21 @@ Statement statement = connection.createStatement();
 ### Kode: Membuat Statement
 
 ```java
+import org.example.util.ConnectionUtil;
+
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Statement;
 
-Connection connection = HikariCPDataSource.getDataSource().getConnection();
-Statement statement = connection.createStatement();
+@Test
+void testCreateStatement() throws SQLException {
 
-statement.close();
-connection.close();
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    Statement statement = connection.createStatement();
+
+    statement.close();
+    connection.close();
+}
 ```
 
 ### Statement.executeUpdate(sql) - Menjalankan SQL tanpa Result
@@ -321,33 +349,72 @@ CREATE TABLE customers
 ```
 
 #### Kode: Mengirim perintah SQL
+
 ```java
-Statement statement = connection.createStatement();
-String sql = """
-        INSERT INTO customers(id, name, email) VALUES
-        ('joko, 'Joko Raharjo', 'joko@test.com');
-        """;
+import org.example.util.ConnectionUtil;
 
-statement.executeUpdate(sql);
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 
-statement.close();
-connection.close();
+@Test
+void testExecuteUpdate() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    Statement statement = connection.createStatement();
+    String sql = """
+            INSERT INTO customers(id, name, email) VALUES
+            ('joko, 'Joko', 'joko@test.com');
+            """;
+
+    statement.executeUpdate(sql);
+
+    statement.close();
+    connection.close();
+}
+
+@Test
+void testExecuteDelete() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    Statement statement = connection.createStatement();
+    
+    String sql = "DELETE * FROM customers";
+    
+    statement.executeUpdate(sql);
+    
+    statement.close();
+    connection.close();
+}
 ```
 
 ### Statement.executeQuery(sql) – Melakukan Query Data
 Kalau kamu ingin mengambil data dari database (`SELECT`), bisa menggunakan:
-```java
-Statement statement = connection.createStatement();
-String sql = "SELECT * FROM customers";
-ResultSet resultSet = statement.executeQuery(sql);
 
-resultSet.close();
-statement.close();
-connection.close();
+**Kode: Melakukan Query Data**
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+@Test
+void testExecuteQuery() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    Statement statement = connection.createStatement();
+
+    String sql = "SELECT * FROM customers";
+    ResultSet resultSet = statement.executeQuery(sql);
+
+    resultSet.close();
+    statement.close();
+    connection.close();
+}
 ```
 Hasilnya berupa `ResultSet`, yaitu objek yang bisa kamu gunakan untuk membaca baris demi baris dari hasil query. namun akan kita bahas nanti.
 
-> [!CAUTION]  
+> [!CAUTION]
+> **Hati-hati: SQL Injection**
 > Kalau kamu pakai Statement dengan input dari user, kamu harus ekstra hati-hati. Contoh buruk:
 > ```java
 > String username = "admin";
@@ -362,15 +429,25 @@ Dalam dunia nyata, kita gak mungkin hardcode semua perintah SQL di aplikasi. Bia
 
 **SQL Injection** adalah teknik eksploitasi yang memanfaatkan celah dari penyusunan SQL yang tidak aman.
 
-Contohnya:
-```java
-String username = "admin'; --";
-String password = "bebas";
+### Contoh Kasus SQL Injection
+**Kode: Membuat Table Admin**
+```sql
+CREATE TABLE admin
+(
+    username VARCHAR(100) NOT NULL,
+    password VARCHAR(100) NOT NULL
+)
 ```
 
-Hasil SQL nya jadi:
+**Kode: Membuat SQL dari Input User**
 ```sql
-SELECT * FROM admin WHERE username = 'admin'; --' AND password = 'bebas'
+String username = "admin' --";
+String password = "admin"
+
+String sql = """
+    SELECT * FROM admin WHERE username = '" + username + 
+    "' AND password = '" + password + "'
+    """; 
 ```
 
 Perhatikan bagian -- di atas, itu adalah komentar di SQL. Artinya perintah setelahnya diabaikan. Sehingga password **tidak dicek sama sekali**, dan query tetap valid.
@@ -390,12 +467,14 @@ Kalau sebelumnya pakai `Statement.executeQuery(sql)` untuk ngelakuin query ke da
 ResultSet itu mirip Iterator, kamu bisa pakai .next() untuk maju ke baris berikutnya. Awalnya, posisinya ada sebelum baris pertama, jadi kamu harus panggil .next() dulu sebelum bisa akses datanya. Setiap baris bisa dibaca menggunakan method getXxx(), sesuai tipe data di kolom.
 
 ### Kode: Iterasi di ResultSet
+
 ```java
+Connection connection = ConnectionUtil.getDataSource().getConnection();
 Statement statement = connection.createStatement();
 String sql = "SELECT * FROM customers";
 ResultSet resultSet = statement.executeQuery(sql);
 
-while(resultSet.next()) {
+while(resultSet.next()){
     // iterasi setiap data
 }
 
@@ -415,15 +494,39 @@ Contoh method yang sering dipakai:
 - getBoolean("columnLabel")
 - getDate("columnLabel") dan lain-lain
 
-### Kode: Mengambil Data di ResultSet
+### Kode: Iterasi dan Mengambil Data di ResultSet
+
 ```java
-while(resultSet.next()) {
-    String id = resultSet.getString("id");
-    String name = resultSet.getString("name");
-    String email = resultSet.getString("email");
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+@Test
+void testResultSetIteration() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    Statement statement = connection.createStatement();
+
+    String sql = "SELECT * FROM customes";
+
+    ResultSet resultSet = statement.executeQuery(sql);
     
-    System.out.println(String.join(", ", id, name, email));
+    while(resultSet.next()){
+        // iterasi setiap data
+        String id = resultSet.getString("id"); // mengambil data id
+        String name = resultSet.getString("name"); // mengambil data nama
+        String email = resultSet.getString("email"); // mengambil data email
+
+        System.out.println(String.join(", ", id, name, email));
+    }
+    
+    resultSet.close();
+    statement.close();
+    connection.close();
 }
+
 ```
 
 ## 6. PreparedStatement
@@ -441,8 +544,13 @@ Dokumentasi resminya: [java.sql.PreparedStatement](https://docs.oracle.com/en/ja
 Berbeda dengan `Statement`, saat membuat `PreparedStatement`, kita langsung tentukan query SQL-nya. Biasanya kita pakai `?` (tanda tanya) sebagai placeholder untuk input dari user.
 
 **Kode: Membuat PreparedStatement**
+
 ```java
-Connection connection = HikariCPDataSource.getDataSource().getConnection();
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+
+Connection connection = ConnectionUtil.getDataSource().getConnection();
 PreparedStatement preparedStatement = connection.prepareStatement("SQL");
 
 preparedStatement.close();
@@ -502,36 +610,407 @@ JDBC mendukung batch di dua cara:
 **1. Statement**
 
 ```java
-Connection connection = HikariCPDataSource.getDataSource().getConnection();
-Statement statement = connection.createStatement();
-String sql = "INSERT INTO customers(id, name, email) VALUES ('eko', 'Eko', 'eko@test.com')";
+import org.example.util.ConnectionUtil;
 
-for(int i = 0; i < 1000; i++) {
-    statement.addBatch(sql);
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+@Test
+void testBatchStatement() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    Statement statement = connection.createStatement();
+    String sql = "INSERT INTO customers(id, name, email) VALUES ('eko', 'Eko', 'eko@test.com')";
+
+    for(int i = 0; i< 1000;i++){
+        statement.addBatch(sql);
+    }
+
+    statement.executeBatch();
+    
+    statement.close();
+    connection.close();
 }
-
-statement.executeBatch();
 ```
 
 **2. PreparedStatement**
 
 ```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
-Connection connection = HikariCPDataSource.getDataSource().getConnection();
-String sql = "INSERT INTO customers(id, name, email) VALUES (?, ?, ?)";
-PreparedStatement preparedStatement = connection.prepareStatement(sql);
+@Test
+void testBatchPreparedStatement() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    String sql = "INSERT INTO customers(id, name, email) VALUES (?, ?, ?)";
+    PreparedStatement preparedStatement = connection.prepareStatement(sql);
 
-for(int i = 0; i < 1000; i ++) {
-    preparedStatement.clearParameters();
-    preparedStatement.setString(1, "joko");
-    preparedStatement.setString(2, "Joko");
-    preparedStatement.setString(3, "joko@test.com");
-    preparedStatement.addBatch();
+    for(int i = 0; i< 1000;i ++){
+        preparedStatement.clearParameters();
+        preparedStatement.setString(1,"joko");
+        preparedStatement.setString(2,"Joko");
+        preparedStatement.setString(3,"joko@test.com");
+        preparedStatement.addBatch();
+    }
+
+    preparedStatement.executeBatch();
+    
+    preparedStatement.close();
+    connection.close();
 }
-
-preparedStatement.executeBatch();
 ```
 > [!WARNING]
 > Batch itu disimpan dulu di memory sebelum dikirim ke database.
-Kalau terlalu banyak? Bisa bikin **OutOfMemoryError**
+> Kalau terlalu banyak? Bisa bikin **OutOfMemoryError**
+
+## 8. Auto Increment
+Kadang setelah kita **insert data** ke tabel yang punya **primary key auto increment**, kita pengen tahu: "ID terakhir yang baru dimasukin itu berapa sih?"
+
+Misalnya:
+```
+INSERT INTO customers(name) VALUES ('Budi');
+```
+
+Di MySQL, kita bisa pakai:
+```
+SELECT LAST_INSERT_ID();
+```
+Tapi ini ribet, karena harus query lagi, bikin `Statement` lagi, `ResultSet` lagi.
+
+### Solusi JDBC: getGeneratedKeys()
+Untungnya, **JDBC punya cara praktis** buat dapetin auto-generated key dari hasil `INSERT`, yaitu:
+```java
+ResultSet generatedKeys = statement.getGeneratedKeys();
+```
+### Step-By-Step
+**1. Membuat Table**
+```sql
+CREATE TABLE comments
+(
+    id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    email VARCHAR(100) NOT NULL,
+    comment TEXT
+)
+```
+
+**2. Insert Data + Ambil Auto Increment ID (Bisa menggunakan Statement ataupun PreparedStatement)**
+
+```java
+
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+@Test
+void testAutoIncrement() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    String sql = "INSERT INTO comments(email, comment) VALUES (?, ?)";
+
+    PreparedStatement preparedStatement = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
+
+    preparedStatement.setString(1, "budi@test.com");
+    preparedStatement.setString(2, "Hi");
+    preparedStatement.executeUpdate();
+
+    ResultSet resultSet = preparedStatement.getGeneratedKeys();
+
+    if (resultSet.next()) {
+        int generatedId = resultSet.getInt(1);
+        System.out.println("Generated ID: " + generatedId);
+    }
+}
+```
+**Wajib Diperhatikan**
+- Jangan lupa pakai `Statement.RETURN_GENERATED_KEYS`, baik saat buat Statement atau `PreparedStatement`.
+- Kalau lupa, `getGeneratedKeys()` akan gagal atau kosong.
+
+## 9. Date, Time, dan Timestamp
+Di dunia database, kita sering banget berurusan dengan data waktu seperti:
+- `DATE`: cuma tanggal (contoh: `2025-06-19`)
+- `TIME`: cuma jam (contoh: `13:45:00`)
+- `TIMESTAMP`: gabungan tanggal & waktu (contoh: `2025-06-19 13:45:00`)
+
+Sedangkan di Java, kita dulu cuman punya
+```java
+java.util.Date
+```
+...dan itu gak cukup fleksibel untuk handle semua jenis waktu secara spesifik.
+
+### Solusi: `java.sql` Time Classes
+Makanya, JDBC menyediakan versi-versi khusus dari `Date`, yaitu: `java.sql.Date`, `java.sql.Time`, dan `java.sql.Timestamp`
+
+Enaknya, JDBC secara otomatis akan mengkonversi data di database ke Java object yang sesuai.
+
+**Kode: Membuat Table**
+```sql
+CREATE TABLE sample_time
+(
+    id INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    sample_date DATE,
+    sample_time TIME,
+    sample_timestamp TIMESTAMP
+)
+```
+
+**Kode: Insert Data**
+
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.*;
+
+@Test
+void testDate() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    String sql = """
+            INSERT INTO sample_time (sample_date, sample_time, sample_timestamp)
+            VALUES (?, ?, ?)
+            """;
+
+    PreparedStatement preparedStatement = connection.prepareStatement(sql);
+    preparedStatement.setDate(1, new Date(System.currentTimeMillis()));
+    preparedStatement.setTime(2, new Time(System.currentTimeMillis()));
+    preparedStatement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+
+    preparedStatement.executeUpdate();
+    
+    preparedStatement.close();
+    connection.close();
+}
+```
+
+**Kode: Select Data**
+
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+@Test
+void testDateQuery() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    String sql = "SELECT * FROM sample_time";
+    PreparedStatement preparedStatement = connection.prepareStatement(sql);
+    ResultSet resultSet = preparedStatement.executeQuery();
+
+    while (resultSet.next()) {
+        System.out.println("ID: " + resultSet.getInt("id"));
+        System.out.println("Date: " + resultSet.getDate("sample_date"));
+        System.out.println("Time: " + resultSet.getTime("sample_time"));
+        System.out.println("Timestamp: " + resultSet.getTimestamp("sample_timestamp"));
+    }
+    
+    resultSet.close();
+    preparedStatement.close();
+    connection.close();
+}
+```
+
+## 10. Database Transaction
+Transaction itu sederhananya adalah **kumpulan perintah SQL** yang dieksekusi **sebagai satu kesatuan**.
+Kalau satu perintah gagal, maka semua perintah lainnya ikut dibatalkan (rollback), supaya data tetap konsisten.
+
+Bayangin aja kayak ATM:
+
+- Transfer uang -> Kurangi saldo A dan Tambah saldo B
+- Kalau salah satu gagal, dua-duanya harus dibatalkan
+
+### Auto Commit
+Secara default, JDBC menggunakan auto-commit = true, artinya:
+- Setiap kali kirim SQL (misal INSERT, UPDATE), dia langsung di-commit otomatis.
+
+Ini bisa bahaya kalau kamu sedang melakukan serangkaian proses yang harus jalan bareng (atomic).
+
+### Cara Mengaktifkan Transaction Manual
+Untuk menjalankan perintah SQL dalam transaksi manual, kamu harus:
+- **Matikan auto commit**
+- Jalankan semua perintah SQL
+- Jika semua sukses: `commit()`
+- Jika ada error: `rollback()`
+
+**Kode: Database Transaction**
+
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.Prepared****Statement;
+import java.sql.SQLException;
+
+@Test
+void testCommit() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    connection.setAutoCommit(false);
+
+    // Proses transaksi disini
+    String sql = "INSERT INTO comments (email, comments) VALUES (?, ?)";
+    for (int i = 0; i < 10; i++) {
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        preparedStatement.setString(1, "udin@test.com");
+        preparedStatement.setString(2, "Hi");
+        preparedStatement.executeUpdate();
+        preparedStatement.close();
+    }
+
+    connection.commit();
+    connection.close();
+}
+```
+
+**Kode: Rollback Transaction**
+
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+@Test
+void testRollback() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    connection.setAutoCommit(false);
+
+    // Proses transaksi disini  
+    String sql = "INSERT INTO comments (email, comments) VALUES (?, ?)";
+    for (int i = 0; i < 10; i++) {
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        preparedStatement.setString(1, "udin@test.com");
+        preparedStatement.setString(2, "Hi");
+        preparedStatement.executeUpdate();
+        preparedStatement.close();
+    }
+
+    connection.rollback();
+    connection.close();
+}
+```
+
+## 10. MetaData
+Kadang dalam pengembangan aplikasi, kita ingin mendapatkan **informasi tentang database, parameter, atau hasil query**. Informasi ini disebut **MetaData**.
+
+JDBC menyediakan beberapa interface untuk mengakses informasi metadata:
+- [DatabaseMetaData](https://docs.oracle.com/en/java/javase/15/docs/api/java.sql/java/sql/DatabaseMetaData.html)
+- [ParameterMetaData](https://docs.oracle.com/en/java/javase/15/docs/api/java.sql/java/sql/ParameterMetaData.html)
+- [ResultSetMetaData](https://docs.oracle.com/en/java/javase/15/docs/api/java.sql/java/sql/ResultSetMetaData.html)
+
+### DatabaseMetaData
+`DatabaseMetaData` adalah interface yang menyediakan informasi detail tentang database yang sedang terkoneksi, seperti:
+- Nama database
+- Versi database
+- Nama-nama table
+- Fitur-fitur yang didukung
+
+Untuk mendapatkannya, kita cukup memanggil method `getMetaData()` dari object `Connection`.
+
+**Kode: DatabaseMetaData**
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+@Test
+void testDatabaseMetaData() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    DatabaseMetaData databaseMetaData = connection.getMetaData();
+
+    System.out.println(databaseMetaData.getDatabaseProductName());
+    System.out.println(databaseMetaData.getDatabaseProductVersion());
+
+    ResultSet resultSet = databaseMetaData.getTables("belajar_java_database", null, null, null);
+    while (resultSet.next()) {
+        String tableName = resultSet.getString("TABLE_NAME);
+        System.out.println("Table Name" + tableName);
+    }
+    
+    connection.close();
+}
+```
+
+### ParameterMetaData
+`ParameterMetaData` digunakan untuk mendapatkan **informasi tentang parameter yang digunakan dalam PreparedStatement**, seperti:
+- Jumlah parameter
+- Tipe data tiap parameter (jika didukung oleh driver)
+
+Untuk mengaksesnya, gunakan method `getParameterMetaData()` dari object `PreparedStatement`.
+
+> ![NOTE]
+> **Tidak semua JDBC driver mendukung tipe data parameter secara detail.** 
+
+**Kode: ParameterMetaData**
+
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.Connection;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+@Test
+void testParameterMetaData() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    String sql = "INSERT INTO comments(email, comment) VALUES (?, ?)";
+    PreparedStatement preparedStatement = connection.prepareStatement(sql);
+
+    ParameterMetaData parameterMetaData = preparedStatement.getParameterMetaData();
+
+    System.out.println(parameterMetaData.getParameterCount());
+    System.out.println(parameterMetaData.getParameterTypeName(1));
+    
+    preparedStatement.close();
+    connection.close();
+}
+```
+
+### ResultSetMetaData
+`ResultSetMetaData` memberikan informasi tentang kolom-kolom di hasil query (`ResultSet`), misalnya:
+- Jumlah kolom
+- Nama kolom 
+- Tipe data kolom
+- Label alias (jika ada)
+
+Kita bisa mengaksesnya melalui method `getMetaData()` dari object `ResultSet`.
+
+**Kode: ResultSetMetaData**
+
+```java
+import org.example.util.ConnectionUtil;
+
+import java.sql.*;
+
+@Test
+void testResultSetMetaData() throws SQLException {
+    Connection connection = ConnectionUtil.getDataSource().getConnection();
+    Statement statement = connection.createStatement();
+    ResultSet resultSet = statement.executeQuery("SELECT * FROM sample_time");
+
+    ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
+
+    for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
+        System.out.println("Name : " + resultSetMetaData.getColumnName(i));
+        System.out.println("Type : " + resultSetMetaData.getColumnType(i));
+        System.out.println("Type Name : " + resultSetMetaData.getColumnTypeName(i));
+
+        if (resultSetMetaData.getColumnType(i) == Types.INTEGER) {
+            System.out.println("INI INTEGER");
+        }
+    }
+
+    resultSet.close();
+    statement.close();
+    connection.close();
+}
+```
