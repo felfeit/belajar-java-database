@@ -29,7 +29,9 @@ Untuk dokumentasi lengkap dari API JDBC, kamu bisa merujuk ke dokumentasi resmi 
 - [javax.sql package summary](https://docs.oracle.com/en/java/javase/15/docs/api/java.sql/javax/sql/package-summary.html)
 
 ## Cara kerja JDBC
+
 Cara kerja JDBC bisa dijelaskan seperti ini:
+![Cara Kerja JDBC](https://github.com/user-attachments/assets/4dd0e348-fff6-4295-8996-a4b775abf9d1)
 
 Aplikasi yang kita buat—baik itu aplikasi desktop, web, atau jenis lainnya yang dibangun dengan Java—tidak langsung terhubung ke database. Sebagai gantinya, aplikasi akan terhubung dulu ke **JDBC** (Java Database Connectivity).
 
@@ -211,7 +213,7 @@ Manfaat:
 
 
 ### Konsep Connection Pool
-![Connection Pool](https://miro.medium.com/v2/resize:fit:1100/format:webp/0*3C6pOIXlS0A_Mb9_.png)
+![Connection_Pool](https://github.com/user-attachments/assets/318a97fc-cee3-4275-98f1-bf1d285cf30c)
 
 ### HikariCP - Connection Pool Cepat & Ringan
 Bikin connection pool sendiri itu ribet dan rawan bug.
@@ -946,7 +948,7 @@ void testDatabaseMetaData() throws SQLException {
 
 Untuk mengaksesnya, gunakan method `getParameterMetaData()` dari object `PreparedStatement`.
 
-> ![NOTE]
+> [!NOTE]
 > Tidak semua JDBC driver mendukung tipe data parameter secara detail.
 
 **Kode: ParameterMetaData**
